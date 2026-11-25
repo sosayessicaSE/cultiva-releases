@@ -86,6 +86,10 @@ jobs:
           # Size and SHA-256 prefix only (safe to log): compare with the local .p12 files.
           for f in mas-app mas-installer; do
             echo "$f.p12: $(wc -c < "$RUNNER_TEMP/$f.p12" | tr -d ' ') bytes, sha256 $(shasum -a 256 "$RUNNER_TEMP/$f.p12" | cut -c1-16), $(head -c 2 "$RUNNER_TEMP/$f.p12" | xxd -p)"
+            if [ "$(wc -c < "$RUNNER_TEMP/$f.p12")" -lt 1500 ]; then
+              echo "::error title=Certificate secret cut short::$f.p12 decoded to only a few bytes. Paste the whole one-line base64 value into the secret again."
+              exit 1
+            fi
           done
           mkdir -p apps/desktop/mas
           decode "$MAS_PROVISIONING_PROFILE_BASE64" apps/desktop/mas/embedded.provisionprofile
