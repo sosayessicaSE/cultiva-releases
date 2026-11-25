@@ -74,10 +74,21 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
 
-      - name: Write the provisioning profile
+      # Secrets pasted from `base64` output can carry line breaks, which makes electron-builder read
+      # CSC_LINK as a file path. Decode everything to files first and point CSC_* at those files.
+      - name: Write the certificates and provisioning profile
         run: |
+          decode() { printf '%s' "$1" | tr -d ' \r\n' | base64 --decode > "$2"; }
+          decode "$CSC_LINK" "$RUNNER_TEMP/mas-app.p12"
+          decode "$CSC_INSTALLER_LINK" "$RUNNER_TEMP/mas-installer.p12"
+          echo "CSC_LINK=$RUNNER_TEMP/mas-app.p12" >> "$GITHUB_ENV"
+          echo "CSC_INSTALLER_LINK=$RUNNER_TEMP/mas-installer.p12" >> "$GITHUB_ENV"
+          for f in mas-app mas-installer; do
+            openssl pkcs12 -in "$RUNNER_TEMP/$f.p12" -passin env:CSC_KEY_PASSWORD -nokeys -legacy 2>/dev/null \
+              | openssl x509 -noout -subject 2>/dev/null | sed "s/^/$f: /" || echo "$f: could not read certificate subject"
+          done
           mkdir -p apps/desktop/mas
-          printf '%s' "$MAS_PROVISIONING_PROFILE_BASE64" | base64 --decode > apps/desktop/mas/embedded.provisionprofile
+          decode "$MAS_PROVISIONING_PROFILE_BASE64" apps/desktop/mas/embedded.provisionprofile
           security cms -D -i apps/desktop/mas/embedded.provisionprofile | plutil -extract Name raw -o - - || true
 
       # CFBundleVersion has to grow with every upload, so it is this repo's run number; the visible
