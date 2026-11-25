@@ -83,9 +83,9 @@ jobs:
           decode "$CSC_INSTALLER_LINK" "$RUNNER_TEMP/mas-installer.p12"
           echo "CSC_LINK=$RUNNER_TEMP/mas-app.p12" >> "$GITHUB_ENV"
           echo "CSC_INSTALLER_LINK=$RUNNER_TEMP/mas-installer.p12" >> "$GITHUB_ENV"
+          # Size and SHA-256 prefix only (safe to log): compare with the local .p12 files.
           for f in mas-app mas-installer; do
-            openssl pkcs12 -in "$RUNNER_TEMP/$f.p12" -passin env:CSC_KEY_PASSWORD -nokeys -legacy 2>/dev/null \
-              | openssl x509 -noout -subject 2>/dev/null | sed "s/^/$f: /" || echo "$f: could not read certificate subject"
+            echo "$f.p12: $(wc -c < "$RUNNER_TEMP/$f.p12" | tr -d ' ') bytes, sha256 $(shasum -a 256 "$RUNNER_TEMP/$f.p12" | cut -c1-16), $(head -c 2 "$RUNNER_TEMP/$f.p12" | xxd -p)"
           done
           mkdir -p apps/desktop/mas
           decode "$MAS_PROVISIONING_PROFILE_BASE64" apps/desktop/mas/embedded.provisionprofile
