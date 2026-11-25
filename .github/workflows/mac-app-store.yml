@@ -101,7 +101,7 @@ jobs:
         working-directory: apps/desktop
         run: |
           pnpm exec electron-vite build
-          pnpm exec electron-builder --mac mas --universal --publish never "-c.buildVersion=${GITHUB_RUN_NUMBER}"
+          pnpm exec electron-builder --mac mas --universal --publish never "-c.buildVersion=${GITHUB_RUN_NUMBER}" -c.mac.minimumSystemVersion=13.0
           ls -la release release/mas-universal || true
 
       - name: Check signature and sandbox
@@ -121,7 +121,12 @@ jobs:
       - name: Validate and upload to App Store Connect
         if: inputs.upload
         run: |
-          auth=(--username "$APPLE_ID" --password "$APPLE_APP_SPECIFIC_PASSWORD" --asc-provider "$APPLE_TEAM_ID")
+          # Trim stray whitespace from pasted secrets; log only lengths (an app-specific password is 19 chars: xxxx-xxxx-xxxx-xxxx).
+          id="$(printf '%s' "$APPLE_ID" | tr -d ' \r\n\t')"
+          pw="$(printf '%s' "$APPLE_APP_SPECIFIC_PASSWORD" | tr -d ' \r\n\t')"
+          team="$(printf '%s' "$APPLE_TEAM_ID" | tr -d ' \r\n\t')"
+          echo "Apple ID: ${#id} chars, contains @: $([[ "$id" == *@* ]] && echo yes || echo no); password: ${#pw} chars; team: ${#team} chars"
+          auth=(--username "$id" --password "$pw" --asc-provider "$team")
           xcrun altool --validate-app --type macos --file "$PKG" "${auth[@]}"
           xcrun altool --upload-app --type macos --file "$PKG" "${auth[@]}"
           echo "Uploaded build ${GITHUB_RUN_NUMBER}. It appears in App Store Connect > Cultiva > TestFlight after processing." >> "$GITHUB_STEP_SUMMARY"
