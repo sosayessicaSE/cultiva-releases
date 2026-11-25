@@ -107,15 +107,16 @@ jobs:
       - name: Check signature and sandbox
         working-directory: apps/desktop/release
         run: |
-          pkg="$(ls ./*.pkg | head -1)"
-          echo "PKG=$PWD/$pkg" >> "$GITHUB_ENV"
+          pkg="$(find . -maxdepth 2 -name '*.pkg' | head -1)"
+          app="$(find . -maxdepth 2 -name '*.app' -type d | head -1)"
+          echo "pkg: $pkg  app: $app"
+          echo "PKG=$PWD/${pkg#./}" >> "$GITHUB_ENV"
           pkgutil --check-signature "$pkg"
-          app="mas-universal/Cultiva.app"
           codesign --verify --deep --strict --verbose=2 "$app"
           codesign -d --entitlements :- "$app" | tee entitlements.plist
           grep -q "com.apple.security.app-sandbox" entitlements.plist
-          lipo -archs "$app/Contents/MacOS/cultiva"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" -c "Print :CFBundleVersion" -c "Print :LSMinimumSystemVersion" "$app/Contents/Info.plist"
+          lipo -archs "$app/Contents/MacOS/"*
+          /usr/libexec/PlistBuddy -c "Print :CFBundleName" -c "Print :CFBundleShortVersionString" -c "Print :CFBundleVersion" -c "Print :LSMinimumSystemVersion" "$app/Contents/Info.plist"
 
       - name: Validate and upload to App Store Connect
         if: inputs.upload
